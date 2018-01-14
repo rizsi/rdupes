@@ -23,4 +23,5 @@ Shows the files in a tree view. The tree view is automatically refreshed when th
  * File commands:
  ** delete, move, etc
  ** Delete all files within a folder which are present in an other folder: these files are already backud up. The others can be added to the backup.
+ ** Visiting, hash counting, etc is done on background thread and progress feedback is shown in the main window.
 
