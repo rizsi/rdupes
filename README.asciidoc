@@ -1,0 +1,24 @@
+# rdupes
+
+Find duplicate files and show them in an interactive GUI.
+
+Typical usage is to find and remove duplicates in a backup folder or to check whether files in a machine are backed up already or not.
+
+## Features
+
+Iterates all files within the root folders and finds the ones with similar size and md5 sum.
+
+Shows the files in a tree view. The tree view is automatically refreshed when the files are updated in the file system.
+
+## Planned features
+
+ * Also find similar folders - hash of folder is the hash of the files in alphabetic filename order
+ * Show sub-collisions in the root folder. Just like error markers are propagated upwards in tree-editors
+ * Possibility to mark duplicates as accepted. (Maybe a simple ignore file would make it.)
+ * Add/remove folders dynamically without restart. This is important because restart means re-hashing all the files.
+ * Multithreaded hash counting using effective java.nio API of MessageDigest
+ * Opening multiple views is possible.
+ * File commands:
+ ** delete, move, etc
+ ** Delete all files within a folder which are present in an other folder: these files are already backud up. The others can be added to the backup.
+

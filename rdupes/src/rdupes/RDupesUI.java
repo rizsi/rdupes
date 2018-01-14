@@ -47,7 +47,7 @@ public class RDupesUI extends Application {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		primaryStage.setTitle("Tree View Sample");
+		primaryStage.setTitle("RDupes duplicate file finder program.");
 
 		RDupesObjectTree rootItem = new RDupesObjectTree(rd);
 		rootItem.childrenFill(true);
