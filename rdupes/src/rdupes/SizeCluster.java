@@ -11,7 +11,7 @@ import hu.qgears.commons.MultiMapHashToHashSetImpl;
 public class SizeCluster {
 	private long size;
 	RDupes parent;
-	private Object syncObject=new Object();
+//	private Object syncObject=new Object();
 	public SizeCluster(RDupes parent, long size) {
 		this.parent=parent;
 		this.size=size;
@@ -23,7 +23,7 @@ public class SizeCluster {
 		{
 			if(singleFile==null)
 			{
-				System.out.println("First file in size cluster: "+size+" "+rDupesFile.getFile());
+				//System.out.println("First file in size cluster: "+size+" "+rDupesFile.getFile());
 				singleFile=rDupesFile;
 			}else
 			{
