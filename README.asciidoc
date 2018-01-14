@@ -6,7 +6,9 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
 
 ## Features
 
-Iterates all files within the root folders and finds the ones with similar size and md5 sum.
+Visits recursively all files within the root folders and finds the ones with similar size and md5 sum.
+
+Symlinks are ignored either for folders and files. (They are not visited and shown just as if they were not there.)
 
 Shows the files in a tree view. The tree view is automatically refreshed when the files are updated in the file system.
 
