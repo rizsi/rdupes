@@ -1,40 +1,88 @@
 package rdupes;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import hu.qgears.commons.UtilComma;
 import hu.qgears.commons.UtilEventListener;
-import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TreeCell;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.Window;
 
 public class RDTreeCell extends TreeCell<RDupesObject>{
 	RDupesObject prevItem;
-	private UtilEventListener<Boolean> l=new UtilEventListener<Boolean>() {
+	
+	public RDTreeCell() {
+	}
+	private UtilEventListener<RDupesObject> l=new UtilEventListener<RDupesObject>() {
 		@Override
-		public void eventHappened(Boolean msg) {
-			Platform.runLater(new Runnable() {
-				
-				@Override
-				public void run() {
-					updateText(prevItem);
-				}
-			});
+		public void eventHappened(RDupesObject msg) {
+			scheduleUpdate();
 		}
 	};
+	AtomicInteger scheduled=new AtomicInteger(0);
+	private Runnable update=new Runnable() {
+		
+		@Override
+		public void run() {
+			scheduled.decrementAndGet();
+			updateText(prevItem);
+		}
+	};
+	private void scheduleUpdate()
+	{
+		if(scheduled.get()==0)
+		{
+			RDupesObject o=prevItem;
+			if(o!=null)
+			{
+				scheduled.incrementAndGet();
+				AnimationExec.getInstance().runLater(update);
+			}
+		}
+	}
 	@Override
 	protected void updateItem(RDupesObject item, boolean empty) {
 		super.updateItem(item, empty);
 		if(prevItem!=null)
 		{
-			prevItem.hasCollision.getPropertyChangedEvent().removeListener(l);
+			prevItem.removeChangeListener(l);
 		}
 		prevItem=item;
+		if(prevItem!=null)
+		{
+			prevItem.addChangeListener(l);
+		}
 		updateText(item);
 	}
 	private void updateText(RDupesObject item) {
 		if(item!=null)
 		{
 			StringBuilder targets=new StringBuilder();
-			targets.append(item.toString());
-			if(item.hasCollision.getProperty())
+			int childDupes=item.getChildDupes();
+			if(item instanceof RDupesFolder)
+			{
+				RDupesFolder folder=(RDupesFolder) item;
+				targets.append("(");
+				targets.append(Integer.toString(folder.files.size()));
+				targets.append(")");
+			}
+			if(childDupes>0)
+			{
+				targets.append("[");
+				targets.append(Integer.toString(childDupes));
+				targets.append("] ");
+			}
+			String s=item.toString();
+			targets.append(s);
+			if(item.hasCollision())
 			{
 				targets.append(" -> ");
 				UtilComma c=new UtilComma(", ");
@@ -44,10 +92,75 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 					targets.append(coll.getFullName());
 				}
 			}
+			if(item instanceof RDupesFolder)
+			{
+				RDupesFolder folder=(RDupesFolder) item;
+				if(folder.getTrashDir()!=null)
+				{
+					targets.append(" TRASH TO: "+folder.getTrashDir());
+				}
+			}
 			setText(targets.toString());
+			if(item.getParent() instanceof RDupes)
+			{
+				final ContextMenu contextMenu = new ContextMenu();
+				MenuItem mi=new MenuItem("Remove");
+				mi.setOnAction(e->item.getHost().removeRootFolderFromModel((RDupesFolder)item));
+				contextMenu.getItems().add(mi);
+				mi=new MenuItem("Set trash folder...");
+				mi.setOnAction(e->setupTrashFolder(item, e));
+				contextMenu.getItems().add(mi);
+				setContextMenu(contextMenu);
+			}else if(item instanceof RDupes)
+			{
+				setContextMenu(null);
+			}else if(item instanceof RDupesPath)
+			{
+				RDupesPath p=(RDupesPath)item;
+				final ContextMenu contextMenu = new ContextMenu();
+				MenuItem mi=new MenuItem("To Trash");
+				mi.setOnAction(e->trashFile(p));
+				contextMenu.getItems().add(mi);
+				contextMenu.setOnShowing(e->mi.setDisable(p.getRootFolder().getTrashDir()==null));
+				setContextMenu(contextMenu);
+			}
 		}else
 		{
 			setText(null);
+			setContextMenu(null);
 		}
+	}
+	private Object trashFile(RDupesPath p) {
+		File tg=p.getRootFolder().getTrashDir();
+		Path rel=p.getRootFolder().file.relativize(p.file);
+		Path tgPath=tg.toPath().resolve(rel);
+		try {
+			tgPath.toFile().getParentFile().mkdirs();
+			if(p instanceof RDupesFolder && tgPath.toFile().exists())
+			{
+				Files.walkFileTree(p.file, new MergeMove(p.file, tgPath));
+			}else
+			{
+				Files.move(p.file, tgPath, StandardCopyOption.ATOMIC_MOVE);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// System.out.println("Move to: "+tgPath);
+		return null;
+	}
+	private Object setupTrashFolder(RDupesObject item, ActionEvent e) {
+		RDupesFolder f=(RDupesFolder)item;
+		Window w=getTreeView().getScene().getWindow();
+		DirectoryChooser trashDirChooser = new DirectoryChooser();
+		trashDirChooser.setTitle("Select trash folder for root folder: "+f);
+		File trashDir=trashDirChooser.showDialog(w);
+		if(trashDir!=null)
+		{
+			f.setTrashDir(trashDir);
+		}
+		// TODO Host window becomes unresizable! https://bugs.openjdk.java.net/browse/JDK-8140491
+		return null;
 	}
 }

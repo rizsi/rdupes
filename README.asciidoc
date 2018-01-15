@@ -6,22 +6,22 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
 
 ## Features
 
-Visits recursively all files within the root folders and finds the ones with similar size and md5 sum.
-
-Symlinks are ignored either for folders and files. (They are not visited and shown just as if they were not there.)
-
-Shows the files in a tree view. The tree view is automatically refreshed when the files are updated in the file system.
+ * Visits recursively all files within the root folders and finds the ones with similar size and md5 sum.
+ * Symlinks are ignored either for folders and files. (They are not visited and shown just as if they were not there.)
+ * Shows the files in a tree view. The tree view is automatically refreshed when the files are updated in the file system.
+ * Show sub-collisions in the root folder. Just like error markers are propagated upwards in tree-editors. Number of sub-collisions is marked.
+ * Possibility to ignore files (can be used mark duplicates as accepted). .rdupesignore files are handled as gitignore files in git.
+ * Add/remove folders dynamically without restart. This is important because restart means re-hashing all the files.
+ * Opening multiple views is possible. Useful when two folders are reviewed simultaneously.
+ * Multithreaded hash counting using effective java.nio API of MessageDigest
+ * Folders visiting, hash counting, etc is done on background thread and progress feedback is shown in the main window.
+ * Feedback of heap allocation and GC on request
+ * Deleting duplicates is possible by moving to a "trash" folder which is set up on the root folder. Action is accessible as a context menu.
 
 ## Planned features
 
  * Also find similar folders - hash of folder is the hash of the files in alphabetic filename order
- * Show sub-collisions in the root folder. Just like error markers are propagated upwards in tree-editors
- * Possibility to mark duplicates as accepted. (Maybe a simple ignore file would make it.)
- * Add/remove folders dynamically without restart. This is important because restart means re-hashing all the files.
- * Multithreaded hash counting using effective java.nio API of MessageDigest
- * Opening multiple views is possible.
  * File commands:
  ** delete, move, etc
  ** Delete all files within a folder which are present in an other folder: these files are already backud up. The others can be added to the backup.
- ** Visiting, hash counting, etc is done on background thread and progress feedback is shown in the main window.
 

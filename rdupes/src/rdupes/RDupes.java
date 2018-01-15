@@ -1,6 +1,8 @@
 package rdupes;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -19,10 +21,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-import hu.qgears.commons.signal.SignalFutureWrapper;
+import org.eclipse.jgit.ignore.IgnoreNode;
 
 public class RDupes extends RDupesObject {
+	public static final String IGNORE_FILE_NAME = ".rdupesignore";
+
 	public static void main(String[] args) throws Exception {
 		List<Path> l=new ArrayList<>();
 		for(String s: args)
@@ -30,8 +36,21 @@ public class RDupes extends RDupesObject {
 			Path p=Paths.get(s);
 			l.add(p);
 		}
-		new RDupes().run(true, l);
+		new RDupes().run(true, l, 1);
 	}
+	
+	public final AtomicInteger foldersProcessed=new AtomicInteger(0);
+	public final AtomicInteger filesProcessed=new AtomicInteger(0);
+	public final AtomicInteger nFileToHash=new AtomicInteger(0);
+	public final AtomicLong nBytesToHahs=new AtomicLong(0);
+	/**
+	 * When this is zero then the state is up to date.
+	 */
+	public final AtomicInteger tasks=new AtomicInteger(1);
+	private Object globalLock=new Object();
+	private RDupesArgs args=new RDupesArgs();
+	public HashingExecutor hashing=new HashingExecutor();
+
 	
 	private List<RDupesFolder> roots=new ArrayList<>();
 	private HashMap<WatchKey, RDupesFolder> paths=new HashMap<>();
@@ -50,13 +69,24 @@ public class RDupes extends RDupesObject {
 	private class FVisitor extends SimpleFileVisitor<Path>
 	{
 		private RDupesFolder currentFolder;
+		private boolean skipCreateRootFolder;
 
-		public FVisitor(RDupesFolder currentFolder) {
+		public FVisitor(RDupesFolder currentFolder, boolean skipCreateRootFolder) {
 			super();
 			this.currentFolder = currentFolder;
+			this.skipCreateRootFolder=skipCreateRootFolder;
 		}
 		@Override
 		public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+			if(skipCreateRootFolder)
+			{
+				skipCreateRootFolder=false;
+				return FileVisitResult.CONTINUE;
+			}
+			if(isIgnored(dir, true))
+			{
+				return FileVisitResult.SKIP_SUBTREE;
+			}
 			if(dir.getFileName().startsWith(".git"))
 			{
 				return FileVisitResult.SKIP_SUBTREE;
@@ -69,38 +99,115 @@ public class RDupes extends RDupesObject {
 			{
 				return FileVisitResult.SKIP_SUBTREE;
 			}
-			
 			RDupesFolder newFolder=new RDupesFolder(RDupes.this, currentFolder, dir);
 			if(currentFolder==null)
 			{
 				synchronized (roots) {
 					roots.add(newFolder);
 				}
-				changed.eventHappened(RDupes.this);
+				fireChange();
+			}
+			if(args.isIgnoreFilesAllowed())
+			{
+				Path file=dir.resolve(IGNORE_FILE_NAME);
+				if(file.toFile().isFile())
+				{
+					updateIgnoreFile(newFolder, file, false);
+				}
 			}
 			currentFolder=newFolder;
-			// System.out.println("registering " + dir + " in watcher service");
 			WatchKey watchKey = dir.register(ws, new WatchEvent.Kind[] { StandardWatchEventKinds.ENTRY_CREATE,
 					StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY });
 			addKey(watchKey, currentFolder);
 			return FileVisitResult.CONTINUE;
 		}
+		public boolean isIgnored(Path dir, boolean isFolder) {
+			if(currentFolder!=null)
+			{
+				String relPath=currentFolder.getRootFolder().file.relativize(dir).toString();
+				boolean ignored=currentFolder.isIgnored(dir, relPath, false, isFolder);
+				return ignored;
+			}
+			return false;
+		}
+
 		@Override
 		public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
 			if(currentFolder!=null && currentFolder.file!=null && currentFolder.file.equals(dir))
 			{
 				currentFolder=currentFolder.parent;
 			}
-			return super.postVisitDirectory(dir, exc);
+			if(exc!=null)
+			{
+				System.err.println("Folder is deleted while visiting: "+exc.getMessage());
+			}
+			return FileVisitResult.CONTINUE;
 		}
 		@Override
 		public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-			if(attrs.isRegularFile())
+			if(args.isIgnoreFilesAllowed()&&file.getFileName().toString().equals(IGNORE_FILE_NAME))
 			{
-				RDupesFile f=new RDupesFile(RDupes.this, currentFolder, file, attrs);
+				// Ignore files are not processed here but when opening the folder
+			}else
+			{
+				if(attrs.isRegularFile())
+				{
+					if(!isIgnored(file, false))
+					{
+						new RDupesFile(RDupes.this, currentFolder, file, attrs);
+					}
+				}
 			}
 			return super.visitFile(file, attrs);
 		}
+		@Override
+		public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+			if(exc!=null)
+			{
+				System.err.println("File is deleted while visiting: "+exc.getMessage());
+			}
+			return FileVisitResult.CONTINUE;
+		}
+	}
+	/**
+	 * 
+	 * @param folder
+	 * @param file
+	 * @param modify true means that it is called from a modify event. This means that all children nodes of the folder must be re-examined!
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	private void updateIgnoreFile(RDupesFolder folder, Path file, boolean modify) throws FileNotFoundException, IOException
+	{
+		if(file!=null)
+		{
+			try(FileInputStream fis=new FileInputStream(file.toFile()))
+			{
+				IgnoreNode in=new IgnoreNode();
+				in.parse(fis);
+				folder.setIgnoreFile(in);
+			}
+		}else
+		{
+			folder.setIgnoreFile(null);
+		}
+		if(modify)
+		{
+			reloadFolder(folder);
+		}
+	}
+	/**
+	 * TODO optimize
+	 *  * Do not reload everything!
+	 *  * Only delete subtrees that are now ignored
+	 *  * Only add subtrees that are not not ignored
+	 * @param folder
+	 * @throws IOException
+	 */
+	private void reloadFolder(RDupesFolder folder) throws IOException {
+		// Delete all children and then re-visit the folder!
+		folder.deleteChildren();
+		Files.walkFileTree(folder.file, new FVisitor(folder, true));
 	}
 	private void registerRecursive(RDupesFolder root, Path file) {
 		File f=file.toFile();
@@ -112,92 +219,101 @@ public class RDupes extends RDupesObject {
 			return;
 		}
 		try {
-			Files.walkFileTree(file, new FVisitor(root));
+			Files.walkFileTree(file, new FVisitor(root, false));
 		} catch (IOException e) {
-			throw new RuntimeException("Error registering path " + file);
+			throw new RuntimeException("Error registering path " + file, e);
 		}
 	}
 
 	private void addKey(WatchKey watchKey, RDupesFolder dir) {
 		paths.put(watchKey, dir);
 	}
-	public final SignalFutureWrapper<RDupes> initializeDone=new SignalFutureWrapper<>();
 
-	public void run(boolean listen, List<Path> initialPaths) throws Exception {
+	public void run(boolean listen, List<Path> initialPaths, int nHashThread) throws Exception {
 		FileSystem fs = FileSystems.getDefault();
 		ws = fs.newWatchService();
 		for(Path p:initialPaths)
 		{
-			registerRecursive(null, p);
+			synchronized(globalLock)
+			{
+				registerRecursive(null, p);
+			}
 		}
-		initializeDone.ready(this, null);
-		printDupes();
+		hashing.setNThread(nHashThread);
 		while (listen) {
 			WatchKey key;
 			try {
+				tasks.decrementAndGet();
 				// wait for a key to be available
 				key = ws.take();
+				tasks.incrementAndGet();
 			} catch (InterruptedException ex) {
 				return;
 			}
-
-			for (WatchEvent<?> event : key.pollEvents()) {
-				// get event type
-				WatchEvent.Kind<?> kind = event.kind();
-
-				// get file name
-				@SuppressWarnings("unchecked")
-				WatchEvent<Path> ev = (WatchEvent<Path>) event;
-				Path fileName = ev.context();
-
-				RDupesFolder folder=paths.get(key);
-				Path fullp=folder.file.resolve(fileName);
-				System.out.println(kind.name() + ": " + fullp);
-				
-				RDupesPath p=folder.get(fileName.toString());
-				if (kind == StandardWatchEventKinds.OVERFLOW) {
-					System.err.println("Overflow!!!");
-					continue;
-				} else if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
-					if(p!=null)
-					{
-						p.delete(true);
+			synchronized(globalLock)
+			{
+				for (WatchEvent<?> event : key.pollEvents()) {
+					// get event type
+					WatchEvent.Kind<?> kind = event.kind();
+	
+					// get file name
+					@SuppressWarnings("unchecked")
+					WatchEvent<Path> ev = (WatchEvent<Path>) event;
+					Path fileName = ev.context();
+	
+					RDupesFolder folder=paths.get(key);
+					Path fullp=folder.file.resolve(fileName);
+					// System.out.println(kind.name() + ": " + fullp);
+					
+					RDupesPath p=folder.get(fileName.toString());
+					if (kind == StandardWatchEventKinds.OVERFLOW) {
+						System.err.println("Overflow!!!");
+						continue;
+					} else if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
+						if(p!=null)
+						{
+							p.delete(true);
+						}
+						if(fileName.getFileName().toString().equals(IGNORE_FILE_NAME))
+						{
+							updateIgnoreFile(folder, fullp, true);
+						}else
+						{
+							registerRecursive(folder, fullp);
+						}
+						// process create event
+					} else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
+						if(p!=null)
+						{
+							p.delete(true);
+						}
+						if(fileName.getFileName().toString().equals(IGNORE_FILE_NAME))
+						{
+							updateIgnoreFile(folder, null, true);
+						}
+						// process delete event
+					} else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
+						if(p!=null)
+						{
+							p.modified();
+						}else
+						{
+							if(fileName.getFileName().toString().equals(IGNORE_FILE_NAME))
+							{
+								updateIgnoreFile(folder, fullp, true);
+							}
+						}
+						// process modify event
 					}
-					registerRecursive(folder, fullp);
-					// process create event
-
-				} else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
-					if(p!=null)
-					{
-						p.delete(true);
-					}
-					// process delete event
-
-				} else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
-					if(p!=null)
-					{
-						p.modified();
-					}
-					// process modify event
-
 				}
 			}
-
 			// IMPORTANT: The key must be reset after processed
 			boolean valid = key.reset();
 			if (!valid) {
 				paths.remove(key);
-				System.err.println("Remaining keys: "+paths.size());
+				// System.err.println("Remaining keys: "+paths.size());
 				// break;
 			}
-		}
-	}
-
-	private void printDupes() {
-		for(Map.Entry<Long, SizeCluster> entry: sizeMap.entrySet())
-		{
-			SizeCluster sc=entry.getValue();
-			sc.printDupes();
 		}
 	}
 
@@ -218,12 +334,12 @@ public class RDupes extends RDupesObject {
 		}
 	}
 
-	public void start(List<Path> l) {
+	public void start(int nHashThread, List<Path> l) {
 		Thread t=new Thread(RDupes.class.getSimpleName()){
 			@Override
 			public void run() {
 				try {
-					RDupes.this.run(true, l);
+					RDupes.this.run(true, l, nHashThread);
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -245,5 +361,52 @@ public class RDupes extends RDupesObject {
 
 	public void removeSizeCluster(long size, SizeCluster sizeCluster) {
 		sizeMap.remove(size, sizeCluster);
+	}
+
+	public void addFolder(File selected) {
+		new Thread("RDupes add folder")
+		{
+			public void run() {
+				tasks.incrementAndGet();
+				synchronized (globalLock) {
+					registerRecursive(null, Paths.get(selected.getAbsolutePath()));
+				}
+				tasks.decrementAndGet();
+			};
+		}.start();
+	}
+
+	@Override
+	public RDupesObject getParent() {
+		return null;
+	}
+	@Override
+	public RDupes getHost() {
+		return this;
+	}
+	public void removeRootFolderFromModel(RDupesFolder item) {
+		tasks.incrementAndGet();
+		synchronized (globalLock) {
+			item.delete(true);
+			roots.remove(item);
+		}
+		tasks.decrementAndGet();
+		fireChange();
+	}
+	public Object getSyncObject() {
+		return globalLock;
+	}
+	@Override
+	public boolean hasChildren() {
+		synchronized (globalLock) {
+			return !roots.isEmpty();
+		}
+	}
+	public void setNCores(int parseInt) {
+		hashing.setNThread(parseInt);
+	}
+	@Override
+	public String toString() {
+		return "RDupes";
 	}
 }

@@ -1,102 +1,69 @@
 package rdupes;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import hu.qgears.commons.MultiMapHashToHashSetImpl;
 
-public class SizeCluster {
+public class SizeCluster implements IHashListener
+{
 	private long size;
 	RDupes parent;
-//	private Object syncObject=new Object();
 	public SizeCluster(RDupes parent, long size) {
 		this.parent=parent;
 		this.size=size;
 	}
+	private AtomicInteger nFile=new AtomicInteger(0);
 	private RDupesFile singleFile;
 	private MultiMapHashToHashSetImpl<String, RDupesFile> hashMap=null;
 	public void addFile(RDupesFile rDupesFile) {
-		if(hashMap==null)
+		int n=nFile.incrementAndGet();
+		if(n==1)
 		{
-			if(singleFile==null)
+			singleFile=rDupesFile;
+		}else if(n==2)
+		{
+			RDupesFile first=singleFile;
+			singleFile=null;
+			if(first!=null)
 			{
-				//System.out.println("First file in size cluster: "+size+" "+rDupesFile.getFile());
-				singleFile=rDupesFile;
-			}else
-			{
-				hashMap=new MultiMapHashToHashSetImpl<>();
-				insertByHash(singleFile);
-				singleFile=null;
-				insertByHash(rDupesFile);
+				first.getHash().doWithHash(this);
 			}
+			rDupesFile.getHash().doWithHash(this);
 		}else
 		{
-			insertByHash(rDupesFile);
+			rDupesFile.getHash().doWithHash(this);
 		}
 	}
-	private void insertByHash(RDupesFile singleFile) {
-		String hash;
-		try {
-			hash = singleFile.getHash();
-			HashSet<RDupesFile> files=hashMap.get(hash);
-			files.add(singleFile);
-			if(files.size()>1)
-			{
-				for(RDupesFile f: files)
-				{
-					f.markCollision();
-				}
-				//singleFile.markCollision();
-			}
-//			System.out.println("Multiple file in size cluster: "+size+" "+singleFile.getFile());
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	public void printDupes() {
-		if(hashMap!=null)
-		{
-			for(Map.Entry<String, Collection<RDupesFile>> entry: hashMap.entrySet())
-			{
-				Collection<RDupesFile> coll=entry.getValue();
-				if(coll.size()>1)
-				{
-					for(RDupesFile f: coll)
-					{
-						System.out.println(""+f.getFile());
-					}
-					System.out.println("");
-				}
-			}
-		}
-	}
+	
 	public void remove(RDupesFile rDupesFile) {
-		if(singleFile!=null)
+		int n=nFile.decrementAndGet();
+		if(singleFile==rDupesFile)
 		{
-			if(singleFile==rDupesFile)
-			{
-				singleFile=null;
-			}
+			singleFile=null;
 		}
 		if(hashMap!=null)
 		{
-			String hash;
 			try {
-				hash = rDupesFile.getHash();
-				HashSet<RDupesFile> all=hashMap.get(hash);
-				hashMap.removeSingle(hash, rDupesFile);
-				if(all.size()==1)
+				String hash = rDupesFile.storedHash;
+				rDupesFile.storedHash=null;
+				HashSet<RDupesFile> all=hashMap.getPossibleNull(hash);
+				if(all!=null)
 				{
-					all.iterator().next().unmarkCollision();
-				}else
-				{
-					for(RDupesFile f: all)
+					synchronized (this) {
+						hashMap.removeSingle(hash, rDupesFile);
+					}
+					if(all.size()==1)
 					{
-						f.lessCollision();
+						all.iterator().next().unmarkCollision();
+					}else
+					{
+						for(RDupesFile f: all)
+						{
+							f.lessCollision();
+						}
 					}
 				}
 			} catch (Exception e) {
@@ -107,24 +74,59 @@ public class SizeCluster {
 			{
 				RDupesFile single=hashMap.values().iterator().next().iterator().next();
 				singleFile=single;
-				hashMap=null;
+				synchronized (this) {
+					hashMap=null;
+				}
 			}
 		}
-		if(hashMap==null&&singleFile==null)
+		if(n==0)
 		{
 			parent.removeSizeCluster(size, this);
 		}
 	}
+	@Override
+	public void hashCounted(RDupesFile hashReadyFile, String hash, int originalChangeCounter) {
+		synchronized (parent.getSyncObject()) {
+			synchronized (this) {
+				if(originalChangeCounter==hashReadyFile.getChangeCounter())
+				{
+					List<RDupesFile> toMark=null;
+					if(hashMap==null)
+					{
+						hashMap=new MultiMapHashToHashSetImpl<>();
+					}
+					HashSet<RDupesFile> files=hashMap.get(hash);
+					files.add(hashReadyFile);
+					if(files.size()>1)
+					{
+						toMark=new ArrayList<>(files);
+					}
+					if(toMark!=null)
+					{
+						for(RDupesFile f: toMark)
+						{
+							f.markCollision();
+						}
+					}
+					hashReadyFile.storedHash=hash;
+				}
+			}
+		}
+	}
 	public List<RDupesObject> getCollisions(RDupesFile rDupesFile) {
-		// TODO synchronize map access!
 		List<RDupesObject> colls=new ArrayList<>();
 		try {
-			HashSet<RDupesFile> ret=hashMap.get(rDupesFile.getHash());
-			for(RDupesFile f: ret)
-			{
-				if(f!=rDupesFile)
+			synchronized (this) {
+				if(hashMap!=null)
 				{
-					colls.add(f);
+					HashSet<RDupesFile> ret=hashMap.get(rDupesFile.storedHash);
+					for(RDupesFile f: ret)
+					{
+						if(f!=rDupesFile)
+						{
+							colls.add(f);
+						}
+					}
 				}
 			}
 		} catch (Exception e) {

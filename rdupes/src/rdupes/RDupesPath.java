@@ -6,6 +6,8 @@ abstract public class RDupesPath extends RDupesObject {
 	protected RDupes rd;
 	protected RDupesFolder parent;
 	protected Path file;
+	protected RDupesFolder rootFolder;
+
 
 	public RDupesPath(RDupes rd, RDupesFolder parent, Path file) {
 		super();
@@ -20,6 +22,16 @@ abstract public class RDupesPath extends RDupesObject {
 		{
 			rd.pathMap.put(file, this);
 		}
+		if(parent!=null)
+		{
+			rootFolder=parent.getRootFolder();
+		}else
+		{
+			rootFolder=(RDupesFolder)this;
+		}
+	}
+	public RDupesFolder getRootFolder() {
+		return rootFolder;
 	}
 	public String toString() {
 		return file==null?"null":
@@ -43,9 +55,30 @@ abstract public class RDupesPath extends RDupesObject {
 		}
 		if(parent!=null)
 		{
-			parent.remove(this);
+			if(removeFromParent)
+			{
+				parent.remove(this);
+			}
+			parent.addChildDupe(collision?-1:0);
+			parent=null;
 		}
 	}
 	protected abstract void deleteChildren();
 	abstract public void modified();
+	@Override
+	public RDupesObject getParent() {
+		if(parent!=null)
+		{
+			return parent;
+		}else
+		{
+			return rd;
+		}
+	}
+	@Override
+	public RDupes getHost() {
+		return rd;
+	}
 }
+
+
