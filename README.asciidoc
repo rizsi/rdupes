@@ -21,7 +21,5 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
 ## Planned features
 
  * Also find similar folders - hash of folder is the hash of the files in alphabetic filename order
- * File commands:
- ** delete, move, etc
- ** Delete all files within a folder which are present in an other folder: these files are already backud up. The others can be added to the backup.
+ * Validation view to check if all files within a folder are present in the other folder. (Are all files backed up?)
 
