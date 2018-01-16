@@ -28,7 +28,7 @@ Files and folders can be omitted from the duplicate search by adding ".rdupesign
 
 Multiple windows can be opened onto the same in-memory model. It can be useful when two folders are edited at the same time. Use The menu: File/Create new window. The program finishes when all windows are closed.
 
-![RDupes in action](rdupes00.png)
+image:rdupes00.png[]
 
 Explanation of the UI:
 
