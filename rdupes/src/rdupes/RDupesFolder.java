@@ -128,4 +128,9 @@ public class RDupesFolder extends RDupesPath {
 	public File getTrashDir() {
 		return trashDir;
 	}
+
+	@Override
+	public boolean hasCollision() {
+		return false;
+	}
 }

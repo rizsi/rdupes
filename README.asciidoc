@@ -4,6 +4,63 @@ Find duplicate files and show them in an interactive GUI.
 
 Typical usage is to find and remove duplicates in a backup folder or to check whether files in a machine are backed up already or not.
 
+## Download
+
+Download the latest version from: http://rizsi.com/programs/rdupes/
+
+## Usage
+
+Run the program with:
+
+----
+$ java -jar rdupes.jar
+----
+
+Drag a folder from a file browser into the main area of the window to load it.
+
+Multiple folders can be dragged.
+
+Edit the files to achieve your goals (Get rid of all duplicates, make sure the backup folder contains everything, etc). The UI is auomatically updated.
+
+If you want to use the trash function then set up a trach folder for the root folder using right click on it. Then files and folders can be moved to the trash folder by selecting the "Trash" action in the context menu.
+
+Files and folders can be omitted from the duplicate search by adding ".rdupesignore" files to folders. The sematics of these files is similar to gitignore. The folders are automatically re-loaded when such a file is updated.
+
+Multiple windows can be opened onto the same in-memory model. It can be useful when two folders are edited at the same time. Use The menu: File/Create new window. The program finishes when all windows are closed.
+
+![RDupes in action](rdupes00.png)
+
+Explanation of the UI:
+
+ * Each node in the tree is a folder or a file.
+ * fileName 5, 15 bytes means that there are 5 files that uses 15 bytes within the subtree.
+ * [3, 10 bytes] means that there are 3 duplicate files that use 10 bytes storage together. If there are no duplicates the [] is omitted.
+ * -> filePath shows the path of the similar files
+ * green background means that all files within that subtree have a copy in a different subtree. (Deleting that subtree results in no data loss.)
+
+### Use cases
+
+#### Get rid of duplicates in a folder - for example in a photos or a music collection
+
+Open rdupes on the folder. Wait until all files are cached then browse the tree for duplicates. Use extrnal tools to delete to files or the internal trash function to move them to a separate folder. The trash folder then can be deleted by hand.
+
+In case there is an intentional duplicate then create a .rdupesignore file containing its name within the parent folder. (Only one of the duplicates need to be ignored so further duplicates will still be found.)
+
+#### Make sure that a backup disk contains all files from your PC
+
+Load the PC folder and the backup folder at the same time. Files and folders have to be copied into the backup until all folders (and also the root folder) are green in the source folder.
+
+In case there are files or folders which need not be backed up then create an .rdupesignore file containing them.
+
+
+#### Make sure that two backups are similar
+
+Make sure that both are duplicate free. Then load them at once and edit them until both are green (without creating duplicates). Double check that there are no duplicates within any of the backups - by loading them and only them at once.
+
+## tweaks
+
+The number of hashing threads can be changed by entering a number into that text area. The number of physical cores is a good guess. Hyperthreading cores are not very useful (according to my measurements) because hashing is very memory intensive.
+
 ## Features
 
  * Visits recursively all files within the root folders and finds the ones with similar size and md5 sum.
@@ -19,6 +76,7 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
  * Deleting duplicates is possible by moving to a "trash" folder which is set up on the root folder. Action is accessible as a context menu.
  * add folders by drag and drop - validate for not adding subfolders of each other
  * Warning popup screen
+ * Validation view to check if all files within a folder are present in the other folder. (Are all files backed up?) Such folders have green background. Dupe files also have a green background.
 
 ## Planned features
 
@@ -27,5 +85,4 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
  * easy set up of trash folder
  * two pane view - easy move folders from one to the other
  * Also find similar folders - hash of folder is the hash of the files in alphabetic filename order
- * Validation view to check if all files within a folder are present in the other folder. (Are all files backed up?)
 

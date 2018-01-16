@@ -22,6 +22,7 @@ abstract public class RDupesPath extends RDupesObject {
 		{
 			rd.pathMap.put(file, this);
 		}
+		level=getParent().getLevel()+1;
 		if(parent!=null)
 		{
 			rootFolder=parent.getRootFolder();
@@ -59,7 +60,6 @@ abstract public class RDupesPath extends RDupesObject {
 			{
 				parent.remove(this);
 			}
-			parent.addChildDupe(collision?-1:0);
 			parent=null;
 		}
 	}

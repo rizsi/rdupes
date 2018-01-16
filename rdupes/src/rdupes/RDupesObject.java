@@ -1,6 +1,7 @@
 package rdupes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -8,10 +9,11 @@ import hu.qgears.commons.UtilEventListener;
 
 abstract public class RDupesObject {
 	private int childDupes;
-	protected boolean collision;
-	protected long size;
+	private long size;
 	protected long childDupesSize;
-	protected int nFile=1;
+	protected int nFile=0;
+	protected int level=0;
+	private boolean allCopy=false;
 	@SuppressWarnings("unchecked")
 	private static UtilEventListener<RDupesObject>[] in=new UtilEventListener[1];
 	private List<UtilEventListener<RDupesObject>> listeners=null;
@@ -64,17 +66,9 @@ abstract public class RDupesObject {
 	public RDupesObject() {
 	}
 	
-	protected void setHasCollision(boolean b) {
-		if(collision!=b)
-		{
-			collision=b;
-			fireChange();
-			addChildDupe(b?1:-1);
-			addChildDupeSize(b?size:-size);
-		}
-	}
 	public void addChildDupe(int i) {
 		childDupes+=i;
+		updateAllCopy();
 		fireChange();
 		if(getParent()!=null)
 		{
@@ -97,15 +91,15 @@ abstract public class RDupesObject {
 	public int getChildDupes() {
 		return childDupes;
 	}
-	public boolean hasCollision() {
-		return collision;
-	}
+	abstract public boolean hasCollision();
 	public void addChildNFile(int i) {
 		nFile+=i;
+		updateAllCopy();
 		if(getParent()!=null)
 		{
 			getParent().addChildNFile(i);
 		}
+		fireChange();
 	}
 	public void addChildSize(long csize) {
 		size+=csize;
@@ -113,8 +107,9 @@ abstract public class RDupesObject {
 		{
 			getParent().addChildSize(csize);
 		}
+		fireChange();
 	}
-	private void addChildDupeSize(long l) {
+	protected void addChildDupeSize(long l) {
 		childDupesSize+=l;
 		if(getParent()!=null)
 		{
@@ -122,9 +117,92 @@ abstract public class RDupesObject {
 		}
 	}
 	public String getStringInfo() {
-		return "Size: "+RDupesStage.formatMemory(size)+" in "+nFile+" files. Duplicate size: "+RDupesStage.formatMemory(childDupesSize)+" in "+childDupes+" files. "+getFullName();
+		return "Size: "+RDupesStage.formatMemory(size)+" in "+nFile+" files. Duplicate size: "+RDupesStage.formatMemory(childDupesSize)+" in "+childDupes+" files. "+getFullName()+
+				(allCopy?" Copy is within: "+getParentOnLevel(deepestLevel).getFullName():"");
+	}
+	public RDupesObject getParentOnLevel(int l)
+	{
+		RDupesObject o=this;
+		while(o.getParent()!=null&&o.level>l)
+		{
+			o=o.getParent();
+		}
+		return o;
 	}
 	public long getChildDupesSize() {
 		return childDupesSize;
+	}
+	public int getLevel() {
+		return level;
+	}
+	private int[] levels;
+	private volatile int deepestLevel=0;
+	public void removeFarthestDupeLevel(int depth) {
+		levels[depth]--;
+		RDupesObject p=getParent();
+		if(p!=null)
+		{
+			p.removeFarthestDupeLevel(depth);
+		}
+		if(depth<=deepestLevel)
+		{
+			int m=levels.length-1;
+			for(;m>=0 && levels[m]==0;--m);
+			if(m<deepestLevel)
+			{
+				deepestLevel=m;
+				updateAllCopy();
+				fireChange();
+			}
+		}
+	}
+	public void addFarthestDupeLevel(int depth) {
+		if(levels==null)
+		{
+			levels=new int[depth+1];
+		}else
+		{
+			int l=levels.length;
+			while(l<=depth)
+			{
+				l*=2;
+			}
+			if(l!=levels.length)
+			{
+				levels=Arrays.copyOf(levels, l);
+			}
+		}
+		levels[depth]++;
+		RDupesObject p=getParent();
+		if(p!=null)
+		{
+			p.addFarthestDupeLevel(depth);
+		}
+		if(deepestLevel<depth)
+		{
+			deepestLevel=depth;
+			updateAllCopy();
+			fireChange();
+		}
+	}
+	private void updateAllCopy() {
+		setAllCopy(deepestLevel<level&&childDupes==nFile);
+	}
+	private void setAllCopy(boolean b) {
+		if(allCopy!=b)
+		{
+			allCopy=b;
+			fireChange();
+		}
+	}
+	public int getDeepestLevel() {
+		return deepestLevel;
+	}
+	public boolean isAllCopy() {
+		return allCopy;
+	}
+	public long getChildSize()
+	{
+		return size;
 	}
 }

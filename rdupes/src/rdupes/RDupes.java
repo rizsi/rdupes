@@ -407,6 +407,10 @@ public class RDupes extends RDupesObject {
 	}
 	@Override
 	public String toString() {
-		return "RDupes";
+		return "RDupes - drag folders to find duplicates within.";
+	}
+	@Override
+	public boolean hasCollision() {
+		return false;
 	}
 }

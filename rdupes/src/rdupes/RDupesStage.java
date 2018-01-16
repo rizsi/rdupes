@@ -85,6 +85,9 @@ public class RDupesStage {
 		}));
 		updateStatus.setCycleCount(Timeline.INDEFINITE);
 		updateStatus.play();
+		
+		primaryStage.getScene().getStylesheets().add(getClass().getResource("rdupes.css").toString());
+
 	}
 
 	private Object updateSelected(TreeItem<RDupesObject> treeItem) {

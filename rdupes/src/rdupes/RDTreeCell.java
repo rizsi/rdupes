@@ -69,7 +69,24 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 			int childDupes=item.getChildDupes();
 			long childDupesSize=item.getChildDupesSize();
 			String s=item.toString();
+			if(item.isAllCopy())
+			{
+				if(!getStyleClass().contains("copy"))
+				{
+					getStyleClass().add("copy");
+				}
+			}else
+			{
+				getStyleClass().remove("copy");
+			}
 			targets.append(s);
+//			targets.append(" NF: "+item.nFile+" ND:"+item.getChildDupes());
+//			targets.append(" FARTHEST: ");
+//			targets.append(""+item.getDeepestLevel());
+			targets.append(" ");
+			targets.append(Integer.toString(item.nFile));
+			targets.append(", ");
+			targets.append(RDupesStage.formatMemory(item.getChildSize()));
 			if(childDupes>0)
 			{
 				targets.append(" [");
@@ -122,6 +139,7 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 			}
 		}else
 		{
+			getStyleClass().remove("copy");
 			setText(null);
 			setContextMenu(null);
 		}
