@@ -17,9 +17,15 @@ Typical usage is to find and remove duplicates in a backup folder or to check wh
  * Folders visiting, hash counting, etc is done on background thread and progress feedback is shown in the main window.
  * Feedback of heap allocation and GC on request
  * Deleting duplicates is possible by moving to a "trash" folder which is set up on the root folder. Action is accessible as a context menu.
+ * add folders by drag and drop - validate for not adding subfolders of each other
+ * Warning popup screen
 
 ## Planned features
 
+ * foldable Settings view
+ * Sane initial value for n threads of hash counting (Use https://github.com/veddan/java-physical-cores )
+ * easy set up of trash folder
+ * two pane view - easy move folders from one to the other
  * Also find similar folders - hash of folder is the hash of the files in alphabetic filename order
  * Validation view to check if all files within a folder are present in the other folder. (Are all files backed up?)
 

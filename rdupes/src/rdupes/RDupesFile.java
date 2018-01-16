@@ -10,15 +10,14 @@ import java.util.List;
 
 public class RDupesFile extends RDupesPath
 {
-	private long size;
 	private volatile LazyFileHash hash;
 	SizeCluster cl;
 	private int changeCounter=0;
 	public String storedHash;
 	public RDupesFile(RDupes rDupes, RDupesFolder parent, Path file, BasicFileAttributes attrs) {
 		super(rDupes, parent, file);
-		rd.filesProcessed.incrementAndGet();
 		this.size=attrs.size();
+		registerStatistics();
 		synchronized (this) {
 			cl=rDupes.createCluster(size);
 			cl.addFile(this);
@@ -71,7 +70,7 @@ public class RDupesFile extends RDupesPath
 	public void modified() {
 		changeCounter++;
 		rd.createCluster(size).remove(this);
-		setHasCollision(false);
+		deregisterStatistics();
 		if(hash!=null)
 		{
 			hash.cancel();
@@ -85,6 +84,7 @@ public class RDupesFile extends RDupesPath
 				cl=rd.createCluster(size);
 			}
 			cl.addFile(this);
+			registerStatistics();
 		} catch(NoSuchFileException e)
 		{
 			// Removed while stuffing...
@@ -119,6 +119,19 @@ public class RDupesFile extends RDupesPath
 	@Override
 	public void delete(boolean removeFromParent) {
 		super.delete(removeFromParent);
+		deregisterStatistics();
+	}
+	protected void registerStatistics() {
+		rd.filesProcessed.incrementAndGet();
+		addChildNFile(1);
+		getParent().addChildNFile(1);
+		getParent().addChildSize(size);
+	}
+
+	protected void deregisterStatistics() {
 		rd.filesProcessed.decrementAndGet();
+		getParent().addChildNFile(-1);
+		getParent().addChildSize(-size);
+		setHasCollision(false);
 	}
 }

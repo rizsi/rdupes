@@ -8,7 +8,10 @@ import hu.qgears.commons.UtilEventListener;
 
 abstract public class RDupesObject {
 	private int childDupes;
-	protected boolean collision; 
+	protected boolean collision;
+	protected long size;
+	protected long childDupesSize;
+	protected int nFile=1;
 	@SuppressWarnings("unchecked")
 	private static UtilEventListener<RDupesObject>[] in=new UtilEventListener[1];
 	private List<UtilEventListener<RDupesObject>> listeners=null;
@@ -66,7 +69,8 @@ abstract public class RDupesObject {
 		{
 			collision=b;
 			fireChange();
-			getParent().addChildDupe(b?1:-1);
+			addChildDupe(b?1:-1);
+			addChildDupeSize(b?size:-size);
 		}
 	}
 	public void addChildDupe(int i) {
@@ -95,5 +99,32 @@ abstract public class RDupesObject {
 	}
 	public boolean hasCollision() {
 		return collision;
+	}
+	public void addChildNFile(int i) {
+		nFile+=i;
+		if(getParent()!=null)
+		{
+			getParent().addChildNFile(i);
+		}
+	}
+	public void addChildSize(long csize) {
+		size+=csize;
+		if(getParent()!=null)
+		{
+			getParent().addChildSize(csize);
+		}
+	}
+	private void addChildDupeSize(long l) {
+		childDupesSize+=l;
+		if(getParent()!=null)
+		{
+			getParent().addChildDupeSize(l);
+		}
+	}
+	public String getStringInfo() {
+		return "Size: "+RDupesStage.formatMemory(size)+" in "+nFile+" files. Duplicate size: "+RDupesStage.formatMemory(childDupesSize)+" in "+childDupes+" files. "+getFullName();
+	}
+	public long getChildDupesSize() {
+		return childDupesSize;
 	}
 }

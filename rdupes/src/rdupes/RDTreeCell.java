@@ -67,21 +67,17 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 		{
 			StringBuilder targets=new StringBuilder();
 			int childDupes=item.getChildDupes();
-			if(item instanceof RDupesFolder)
-			{
-				RDupesFolder folder=(RDupesFolder) item;
-				targets.append("(");
-				targets.append(Integer.toString(folder.files.size()));
-				targets.append(")");
-			}
-			if(childDupes>0)
-			{
-				targets.append("[");
-				targets.append(Integer.toString(childDupes));
-				targets.append("] ");
-			}
+			long childDupesSize=item.getChildDupesSize();
 			String s=item.toString();
 			targets.append(s);
+			if(childDupes>0)
+			{
+				targets.append(" [");
+				targets.append(Integer.toString(childDupes));
+				targets.append(", ");
+				targets.append(RDupesStage.formatMemory(childDupesSize));
+				targets.append("] ");
+			}
 			if(item.hasCollision())
 			{
 				targets.append(" -> ");
