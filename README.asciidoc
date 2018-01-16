@@ -4,9 +4,27 @@ Find duplicate files and show them in an interactive GUI.
 
 Typical usage is to find and remove duplicates in a backup folder or to check whether files in a machine are backed up already or not.
 
-## Download
+## Download and Install
 
 Download the latest version from: http://rizsi.com/programs/rdupes/
+
+The program need not be installed but can be run as a user. Dependencies required:
+
+ * java 8 JRE
+ * JavaFX - which is a separate package on many Linux distros
+ * xgd-open - just to lauch this help page from the about box
+
+Install the dependencies on Ubuntu 16:04 or later:
+
+----
+$ sudo apt-get install default-jre openjfx
+----
+
+Or with this in case default jre is not version 8 yet: (On 14.04 there is no JRE 8 yet. It can be installed from PPA or by downloading from Oracle and installing manually.)
+
+----
+$ sudo apt-get install openjdk-8-jre openjfx
+----
 
 ## Usage
 
