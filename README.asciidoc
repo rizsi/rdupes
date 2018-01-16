@@ -16,9 +16,9 @@ Run the program with:
 $ java -jar rdupes.jar
 ----
 
-Drag a folder from a file browser into the main area of the window to load it.
+Drag a folder from a file browser into the main area of the window to load it. Or use the "File/Add root folder..." menu as an alternative.
 
-Multiple folders can be dragged.
+Multiple folders can be dragged. They can be removed (from the view they are not deleted by the tool) by using the context menu on the root folders.
 
 Edit the files to achieve your goals (Get rid of all duplicates, make sure the backup folder contains everything, etc). The UI is auomatically updated.
 
