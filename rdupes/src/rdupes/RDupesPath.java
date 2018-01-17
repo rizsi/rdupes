@@ -54,11 +54,11 @@ abstract public class RDupesPath extends RDupesObject {
 		{
 			rd.pathMap.remove(file, this);
 		}
-		if(parent!=null)
+		if(getParent()!=null)
 		{
 			if(removeFromParent)
 			{
-				parent.remove(this);
+				getParent().remove(this);
 			}
 			parent=null;
 		}

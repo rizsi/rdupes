@@ -279,4 +279,8 @@ public class RDupesFile extends RDupesPath
 	@Override
 	protected void deleteChildren() {
 	}
+	@Override
+	public void remove(RDupesPath rDupesPath) {
+		// Never happens normally. Nothing to do.
+	}
 }

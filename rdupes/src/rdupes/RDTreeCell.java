@@ -114,7 +114,7 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 				}
 			}
 			setText(targets.toString());
-			if(item.getParent() instanceof RDupes)
+			if(item.isRootFolder())
 			{
 				final ContextMenu contextMenu = new ContextMenu();
 				MenuItem mi=new MenuItem("Remove");

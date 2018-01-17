@@ -205,4 +205,8 @@ abstract public class RDupesObject {
 	{
 		return size;
 	}
+	abstract public void remove(RDupesPath rDupesPath);
+	public boolean isRootFolder() {
+		return getParent() instanceof RDupes;
+	}
 }

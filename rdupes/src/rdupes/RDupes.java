@@ -87,14 +87,6 @@ public class RDupes extends RDupesObject {
 			{
 				return FileVisitResult.SKIP_SUBTREE;
 			}
-			if(dir.getFileName().startsWith(".git"))
-			{
-				return FileVisitResult.SKIP_SUBTREE;
-			}
-			if(dir.getFileName().startsWith(".svn"))
-			{
-				return FileVisitResult.SKIP_SUBTREE;
-			}
 			if(Files.isSymbolicLink(dir))
 			{
 				return FileVisitResult.SKIP_SUBTREE;
@@ -252,6 +244,7 @@ public class RDupes extends RDupesObject {
 			}
 			synchronized(globalLock)
 			{
+				RDupesFolder folder=paths.get(key);
 				for (WatchEvent<?> event : key.pollEvents()) {
 					// get event type
 					WatchEvent.Kind<?> kind = event.kind();
@@ -261,7 +254,6 @@ public class RDupes extends RDupesObject {
 					WatchEvent<Path> ev = (WatchEvent<Path>) event;
 					Path fileName = ev.context();
 	
-					RDupesFolder folder=paths.get(key);
 					Path fullp=folder.file.resolve(fileName);
 					// System.out.println(kind.name() + ": " + fullp);
 					
@@ -306,13 +298,16 @@ public class RDupes extends RDupesObject {
 						// process modify event
 					}
 				}
-			}
-			// IMPORTANT: The key must be reset after processed
-			boolean valid = key.reset();
-			if (!valid) {
-				paths.remove(key);
-				// System.err.println("Remaining keys: "+paths.size());
-				// break;
+				// IMPORTANT: The key must be reset after processed
+				boolean valid = key.reset();
+				if (!valid) {
+					if(folder.isRootFolder())
+					{
+						// If folder is not root then the parent will be notified to delete it. Otherwise it has to be deleted manually here.
+						folder.delete(true);
+					}
+					paths.remove(key);
+				}
 			}
 		}
 	}
@@ -412,5 +407,11 @@ public class RDupes extends RDupesObject {
 	@Override
 	public boolean hasCollision() {
 		return false;
+	}
+	@Override
+	public void remove(RDupesPath rDupesPath)
+	{
+		roots.remove(rDupesPath);
+		fireChange();
 	}
 }
