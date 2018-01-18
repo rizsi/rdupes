@@ -52,7 +52,7 @@ Explanation of the UI:
 
  * Each node in the tree is a folder or a file.
  * fileName 5, 15 bytes means that there are 5 files that uses 15 bytes within the subtree.
- * [3, 10 bytes] means that there are 3 duplicate files that use 10 bytes storage together. If there are no duplicates the [] is omitted.
+ * [3, 10 bytes] means that there are 3 duplicate files that use 10 bytes storage together. If there are no duplicates the [] is omitted. When there is at least one duplicate in a subtree it is written with red fonts.
  * -> filePath shows the path of the similar files
  * green background means that all files within that subtree have a copy in a different subtree. (Deleting that subtree results in no data loss.)
 
