@@ -79,6 +79,16 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 			{
 				getStyleClass().remove("copy");
 			}
+			if(item.getChildDupes()>0)
+			{
+				if(!getStyleClass().contains("hasDupe"))
+				{
+					getStyleClass().add("hasDupe");
+				}
+			}else
+			{
+				getStyleClass().remove("hasDupe");
+			}
 			targets.append(s);
 //			targets.append(" NF: "+item.nFile+" ND:"+item.getChildDupes());
 //			targets.append(" FARTHEST: ");
@@ -140,6 +150,7 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 		}else
 		{
 			getStyleClass().remove("copy");
+			getStyleClass().remove("hasDupe");
 			setText(null);
 			setContextMenu(null);
 		}

@@ -1,3 +1,7 @@
+.hasDupe{
+    /* -fx-background: #FF0000; */
+    -fx-text-fill: #FF0000;
+}
 .copy{
     -fx-background: #00FF00;
 }
