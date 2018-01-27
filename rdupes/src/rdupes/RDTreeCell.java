@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import hu.qgears.commons.UtilComma;
@@ -13,13 +15,27 @@ import javafx.event.ActionEvent;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 
 public class RDTreeCell extends TreeCell<RDupesObject>{
 	RDupesObject prevItem;
+	Rectangle graphics=new Rectangle();
+	ImageView icon=new ImageView();
+	Pane pane=new StackPane();
 	
 	public RDTreeCell() {
+		graphics.heightProperty().set(16);
+		graphics.widthProperty().set(16);
+		icon.setFitWidth(16);
+		icon.setFitHeight(16);
+		pane.getChildren().add(graphics);
+		pane.getChildren().add(icon);
 	}
 	private UtilEventListener<RDupesObject> l=new UtilEventListener<RDupesObject>() {
 		@Override
@@ -33,7 +49,7 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 		@Override
 		public void run() {
 			scheduled.decrementAndGet();
-			updateText(prevItem);
+			updateText();
 		}
 	};
 	private void scheduleUpdate()
@@ -60,11 +76,20 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 		{
 			prevItem.addChangeListener(l);
 		}
-		updateText(item);
+		updateText();
 	}
-	private void updateText(RDupesObject item) {
+	private void updateText() {
+		RDupesObject item=getItem();
+		setGraphic(pane);
+		graphics.getStyleClass().clear();
+		graphics.getStyleClass().add("icon-empty");
+		icon.getStyleClass().clear();
 		if(item!=null)
 		{
+			if(item instanceof RDupesFolder)
+			{
+				icon.getStyleClass().add("icon-folder");
+			}
 			StringBuilder targets=new StringBuilder();
 			int childDupes=item.getChildDupes();
 			long childDupesSize=item.getChildDupesSize();
@@ -75,6 +100,7 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 				{
 					getStyleClass().add("copy");
 				}
+				graphics.getStyleClass().add("icon-copy");
 			}else
 			{
 				getStyleClass().remove("copy");
@@ -90,9 +116,6 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 				getStyleClass().remove("hasDupe");
 			}
 			targets.append(s);
-//			targets.append(" NF: "+item.nFile+" ND:"+item.getChildDupes());
-//			targets.append(" FARTHEST: ");
-//			targets.append(""+item.getDeepestLevel());
 			targets.append(" ");
 			targets.append(Integer.toString(item.nFile));
 			targets.append(", ");
@@ -151,26 +174,55 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 		{
 			getStyleClass().remove("copy");
 			getStyleClass().remove("hasDupe");
-			setText(null);
+			setText("");
 			setContextMenu(null);
 		}
 	}
-	private Object trashFile(RDupesPath p) {
-		File tg=p.getRootFolder().getTrashDir();
-		Path rel=p.getRootFolder().file.relativize(p.file);
-		Path tgPath=tg.toPath().resolve(rel);
-		try {
-			tgPath.toFile().getParentFile().mkdirs();
-			if(p instanceof RDupesFolder && tgPath.toFile().exists())
+	private Object trashFile(RDupesPath selectedElement) {
+		List<RDupesPath> toTrash=new ArrayList<>();
+		RDupesObject root=selectedElement.getParentOnLevel(1);
+		for(TreeItem<RDupesObject> i:getTreeView().getSelectionModel().getSelectedItems())
+		{
+			if(i.getValue().isRootFolder())
 			{
-				Files.walkFileTree(p.file, new MergeMove(p.file, tgPath));
-			}else
-			{
-				Files.move(p.file, tgPath, StandardCopyOption.ATOMIC_MOVE);
+				// TODO show error to user
+				return null;
 			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			if(i.getValue() instanceof RDupes)
+			{
+				// TODO show error to user
+				return null;
+			}
+			if(i.getValue().getParentOnLevel(1)!=root)
+			{
+				// TODO show error to user
+				return null;
+			}
+			toTrash.add((RDupesPath)i.getValue());
+		}
+		System.out.println("Trash: "+toTrash);
+		for(RDupesPath p:toTrash)
+		{
+			Path rel=p.getRootFolder().file.relativize(p.file);
+			// In case of multi selection it is possible that the file is already moved.
+			if(p.file.toFile().exists())
+			{
+				File tg=p.getRootFolder().getTrashDir();
+				Path tgPath=tg.toPath().resolve(rel);
+				try {
+					tgPath.toFile().getParentFile().mkdirs();
+					if(p instanceof RDupesFolder && tgPath.toFile().exists())
+					{
+						Files.walkFileTree(p.file, new MergeMove(p.file, tgPath));
+					}else
+					{
+						Files.move(p.file, tgPath, StandardCopyOption.ATOMIC_MOVE);
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 		}
 		// System.out.println("Move to: "+tgPath);
 		return null;

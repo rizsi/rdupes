@@ -2,6 +2,53 @@
     /* -fx-background: #FF0000; */
     -fx-text-fill: #FF0000;
 }
+/*
 .copy{
     -fx-background: #00FF00;
 }
+*
+*/
+.copy:selected{
+	-fx-stroke: green;
+    -fx-stroke-width: 5;
+    -fx-stroke-dash-array: 12 2 4 2;
+    -fx-stroke-dash-offset: 6;
+    -fx-stroke-line-cap: butt;
+
+}
+.icon-empty
+{
+    -fx-fill: transparent;
+	
+}
+.icon-copy
+{
+    -fx-fill: green;
+}
+.icon-folder {
+	-fx-image: url("folder.png");
+}
+/*.cell:even
+{
+    -fx-background: #AAAAFF;
+}
+.cell:empty
+{
+    -fx-background: #FFFFFF;
+}
+.cell:selected
+{
+	
+}
+*/
+/*
+.copy:selected{
+    -fx-background: #00FFFF;
+}
+
+.copy:disabled
+{
+    -fx-background: #00FFFF;
+}
+* 
+*/

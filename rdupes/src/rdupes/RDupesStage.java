@@ -17,6 +17,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
@@ -50,6 +51,7 @@ public class RDupesStage {
 		rootItem.expanded(true);
 		TreeView<RDupesObject> tree = new TreeView<RDupesObject>(rootItem);
 		tree.setCellFactory(a -> new RDTreeCell());
+		tree.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 		tree.getSelectionModel().selectedItemProperty().addListener(e->updateSelected(tree.getSelectionModel().getSelectedItem()));
 		installDropListener(tree);
 		StackPane root = new StackPane();
