@@ -43,7 +43,9 @@ public class RDupesFolder extends RDupesPath {
 
 	@Override
 	public void remove(RDupesPath rDupesPath) {
-		files.remove(rDupesPath.getSimpleName());
+		synchronized (files) {
+			files.remove(rDupesPath.getSimpleName());
+		}
 		fireChange();
 	}
 

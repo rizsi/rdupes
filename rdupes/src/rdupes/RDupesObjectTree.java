@@ -26,14 +26,11 @@ public class RDupesObjectTree extends TreeItem<RDupesObject>{
 	private UtilEventListener<RDupesObject> cl=new UtilEventListener<RDupesObject>() {
 		@Override
 		public void eventHappened(RDupesObject msg) {
-			if(scheduled.get()==0)
+			int sched=scheduled.get();
+			if(sched==0)
 			{
-				RDupesObject o=getValue();
-				if(o!=null)
-				{
-					scheduled.incrementAndGet();
-					AnimationExec.getInstance().runLater(updateOnUIThread);
-				}
+				scheduled.incrementAndGet();
+				AnimationExec.getInstance().runLater(updateOnUIThread);
 			}
 		}
 	};
@@ -59,6 +56,12 @@ public class RDupesObjectTree extends TreeItem<RDupesObject>{
 		});
 	}
 	private void updateChildren() {
+		RDupesObject rdo=getValue();
+		if(rdo==null)
+		{
+			getChildren().clear();
+			return;
+		}
 		if(!shown||!opened)
 		{
 			boolean has=getValue().hasChildren();
@@ -75,13 +78,19 @@ public class RDupesObjectTree extends TreeItem<RDupesObject>{
 			TreeItem<RDupesObject> parent=getParent();
 			if(parent==null||parent.isExpanded())
 			{
-				List<RDupesObject> children=getValue().getChildren();
+				List<RDupesObject> children=rdo.getChildren();
 				Map<String, RDupesObjectTree> existingChildren=new HashMap<>();
+				List<RDupesObjectTree> toDelete=new ArrayList<>(0);
 				for(TreeItem<RDupesObject> ti: getChildren())
 				{
-					existingChildren.put(ti.getValue().getSimpleName(), (RDupesObjectTree)ti);
+					RDupesObjectTree prev=existingChildren.put(ti.getValue().getSimpleName(), (RDupesObjectTree)ti);
+					if(prev!=null)
+					{
+						toDelete.add(prev);
+					}
 				}
 				List<RDupesObjectTree> newChildren=new ArrayList<>();
+				boolean changed=false;
 				for(RDupesObject c:children)
 				{
 					RDupesObjectTree newChild=existingChildren.remove(c.getSimpleName());
@@ -89,9 +98,11 @@ public class RDupesObjectTree extends TreeItem<RDupesObject>{
 					{
 						newChild.dispose();
 						newChild=null;
+						changed=true;
 					}
 					if(newChild==null)
 					{
+						changed=true;
 						newChild=new RDupesObjectTree(c);
 						if(isExpanded())
 						{
@@ -102,10 +113,18 @@ public class RDupesObjectTree extends TreeItem<RDupesObject>{
 				}
 				for(RDupesObjectTree t: existingChildren.values())
 				{
+					changed=true;
 					t.dispose();
 				}
-				getChildren().clear();
-				getChildren().addAll(newChildren);
+				for(RDupesObjectTree t: toDelete)
+				{
+					t.dispose();
+				}
+				if(changed)
+				{
+					getChildren().clear();
+					getChildren().addAll(newChildren);
+				}
 				opened=true;
 			}else
 			{

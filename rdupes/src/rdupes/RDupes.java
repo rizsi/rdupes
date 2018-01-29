@@ -233,25 +233,36 @@ public class RDupes extends RDupesObject {
 		}
 		hashing.setNThread(nHashThread);
 		while (listen) {
-			WatchKey key;
-			try {
-				tasks.decrementAndGet();
-				// wait for a key to be available
-				key = ws.take();
-				tasks.incrementAndGet();
-			} catch (InterruptedException ex) {
-				return;
-			}
-			synchronized(globalLock)
-			{
-				RDupesFolder folder=paths.get(key);
-				for (WatchEvent<?> event : key.pollEvents()) {
-					// get event type
-					WatchEvent.Kind<?> kind = event.kind();
-	
-					// get file name
-					@SuppressWarnings("unchecked")
-					WatchEvent<Path> ev = (WatchEvent<Path>) event;
+			executeOneIteration();
+		}
+	}
+
+	private void executeOneIteration() throws FileNotFoundException, IOException, InterruptedException {
+		WatchKey key;
+		try {
+			tasks.decrementAndGet();
+			// wait for a key to be available
+			key = ws.take();
+			tasks.incrementAndGet();
+		} catch (InterruptedException ex) {
+			return;
+		}
+		processUpdates(key);
+	}
+
+	private void processUpdates(WatchKey key) {
+		synchronized(globalLock)
+		{
+			RDupesFolder folder=paths.get(key);
+			for (WatchEvent<?> event : key.pollEvents()) {
+				// get event type
+				WatchEvent.Kind<?> kind = event.kind();
+
+				// get file name
+				@SuppressWarnings("unchecked")
+				WatchEvent<Path> ev = (WatchEvent<Path>) event;
+				try
+				{
 					Path fileName = ev.context();
 	
 					Path fullp=folder.file.resolve(fileName);
@@ -297,17 +308,35 @@ public class RDupes extends RDupesObject {
 						}
 						// process modify event
 					}
-				}
-				// IMPORTANT: The key must be reset after processed
-				boolean valid = key.reset();
-				if (!valid) {
-					if(folder.isRootFolder())
-					{
-						// If folder is not root then the parent will be notified to delete it. Otherwise it has to be deleted manually here.
-						folder.delete(true);
+				}catch (Exception e) {
+					StringBuilder errStr=new StringBuilder("Error processing event: ");
+					try {
+						errStr.append(ev.kind().name());
+					} catch (Exception e1) {
 					}
-					paths.remove(key);
+					errStr.append(" fullname: ");
+					try {
+						errStr.append(folder.getFullName());
+					} catch (Exception e1) {
+					}
+					errStr.append(" context: ");
+					try {
+						errStr.append(ev.context());
+					} catch (Exception e1) {
+					}
+					System.err.println(errStr.toString());
+					e.printStackTrace();
 				}
+			}
+			// IMPORTANT: The key must be reset after processed
+			boolean valid = key.reset();
+			if (!valid) {
+				if(folder.isRootFolder())
+				{
+					// If folder is not root then the parent will be notified to delete it. Otherwise it has to be deleted manually here.
+					folder.delete(true);
+				}
+				paths.remove(key);
 			}
 		}
 	}
