@@ -93,7 +93,7 @@ The number of hashing threads can be changed by entering a number into that text
  * Feedback of heap allocation and GC on request
  * Deleting duplicates is possible by moving to a "trash" folder which is set up on the root folder. Action is accessible as a context menu.
  * add folders by drag and drop - validate for not adding subfolders of each other
- * Warning popup screen
+ * Warning popup screen for possible data loss using the program
  * Validation view to check if all files within a folder are present in the other folder. (Are all files backed up?) Such folders have green background. Dupe files also have a green background.
 
 ## Planned features
