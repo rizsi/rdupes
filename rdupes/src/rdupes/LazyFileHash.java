@@ -11,14 +11,20 @@ import java.util.concurrent.CancellationException;
 
 import hu.qgears.commons.UtilMd5;
 
-public class LazyFileHash{
+/**
+ * Hash of a single file - the hash may be already counted or it will be counted later.
+ * Use doWithHash to get the hash now or when it becomes ready.
+ */
+public class LazyFileHash implements IHashProvider
+{
 	private int originalChangeCounter;
 	private File f;
 	private volatile boolean cancelled;
 	private long size;
 	private RDupes rd;
-	private String countedHash;
-	private RDupesFile singleFile;
+	protected String countedHash;
+	protected long modifiedDate;
+	protected RDupesFile singleFile;
 	private List<IHashListener> listeners=new ArrayList<>(0);
 	public LazyFileHash(RDupesFile rDupesFile, long size) {
 		this.singleFile=rDupesFile;
@@ -26,16 +32,25 @@ public class LazyFileHash{
 		originalChangeCounter=rDupesFile.getChangeCounter();
 		f=rDupesFile.file.toFile();
 		this.size=size;
-		rDupesFile.rd.hashing.submitHashing(this);
-		rDupesFile.rd.nFileToHash.addAndGet(1);
-		rDupesFile.rd.nBytesToHahs.addAndGet(size);
+		modifiedDate=f.lastModified();
+	}
+	/**
+	 * Do the hashing of the file. Default implementation enqueues the hashing task to the
+	 * hash processing queue.
+	 * Subclasses may override with for example persistency of file hash between process restarts.
+	 */
+	public void executeHashing() {
+		singleFile.rd.hashing.submitHashing(this);
+		singleFile.rd.nFileToHash.addAndGet(1);
+		singleFile.rd.nBytesToHahs.addAndGet(size);
 	}
 
+	@Override
 	public void doWithHash(IHashListener sizeCluster) {
 		synchronized (this) {
 			if(countedHash!=null)
 			{
-				sizeCluster.hashCounted(singleFile, countedHash, originalChangeCounter);
+				sizeCluster.hashCounted(singleFile, countedHash, originalChangeCounter, modifiedDate, size);
 			}else
 			{
 				if(listeners!=null)
@@ -83,22 +98,25 @@ public class LazyFileHash{
 			// e.printStackTrace();
 		}finally
 		{
-			List<IHashListener> hls;
-			synchronized (this) {
-				countedHash=hash;
-				hls=listeners;
-				listeners=null;
-			}
 			rd.nFileToHash.addAndGet(-1);
 			rd.nBytesToHahs.addAndGet(-size+processed);
-			for(IHashListener l: hls)
-			{
-				l.hashCounted(singleFile, hash, originalChangeCounter);
-			}
+			ready(hash);
 		}
 		return null;
 	}
 
+	protected void ready(String hash) {
+		List<IHashListener> hls;
+		synchronized (this) {
+			countedHash=hash;
+			hls=listeners;
+			listeners=null;
+		}
+		for(IHashListener l: hls)
+		{
+			l.hashCounted(singleFile, hash, originalChangeCounter, modifiedDate, size);
+		}
+	}
 	public void cancel() {
 		cancelled=true;
 	}

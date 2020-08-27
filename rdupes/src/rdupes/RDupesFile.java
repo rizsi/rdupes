@@ -12,26 +12,28 @@ import java.util.List;
 
 public class RDupesFile extends RDupesPath
 {
-	private volatile LazyFileHash hash;
-	SizeCluster cl;
+	private volatile IHashProvider hash;
+	private SizeCluster cl;
 	private int changeCounter=0;
 	public String storedHash;
 	private HashSet<RDupesFile> collisions=new HashSet<>();
 	private int farthestDupeLevel=Integer.MAX_VALUE;
 	private long fileSize;
+	private long lastModified;
 	public RDupesFile(RDupes rDupes, RDupesFolder parent, Path file, BasicFileAttributes attrs) {
 		super(rDupes, parent, file);
 		fileSize=attrs.size();
+		lastModified=attrs.lastModifiedTime().toMillis();
 		registerStatistics();
 		synchronized (this) {
 			cl=rDupes.createCluster(fileSize);
 			cl.addFile(this);
 		}
 	}
-	public LazyFileHash getHash() {
+	public IHashProvider getHash() {
 		if(hash==null)
 		{
-			hash=new LazyFileHash(this, fileSize);
+			hash=rd.startHash(this, fileSize, lastModified);
 		}
 		return hash;
 	}
@@ -210,6 +212,7 @@ public class RDupesFile extends RDupesPath
 		try {
 			BasicFileAttributes attrs=Files.readAttributes(file, BasicFileAttributes.class);
 			fileSize=attrs.size();
+			lastModified=attrs.lastModifiedTime().toMillis();
 			synchronized (this) {
 				cl=rd.createCluster(fileSize);
 			}

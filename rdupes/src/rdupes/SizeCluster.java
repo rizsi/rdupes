@@ -5,6 +5,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import hu.qgears.commons.MultiMapHashToHashSetImpl;
 
+/**
+ * Simiar sized files - there is a chance that there are similar files in the same size cluster.
+ */
 public class SizeCluster implements IHashListener
 {
 	private long size;
@@ -77,7 +80,8 @@ public class SizeCluster implements IHashListener
 		}
 	}
 	@Override
-	public void hashCounted(RDupesFile hashReadyFile, String hash, int originalChangeCounter) {
+	public void hashCounted(RDupesFile hashReadyFile, String hash, int originalChangeCounter, long lastModified
+			, long fileSize) {
 		synchronized (parent.getSyncObject()) {
 			synchronized (this) {
 				if(originalChangeCounter==hashReadyFile.getChangeCounter())
@@ -101,26 +105,4 @@ public class SizeCluster implements IHashListener
 			}
 		}
 	}
-//	public List<RDupesObject> getCollisions(RDupesFile rDupesFile) {
-//		List<RDupesObject> colls=new ArrayList<>();
-//		try {
-//			synchronized (this) {
-//				if(hashMap!=null)
-//				{
-//					HashSet<RDupesFile> ret=hashMap.get(rDupesFile.storedHash);
-//					for(RDupesFile f: ret)
-//					{
-//						if(f!=rDupesFile)
-//						{
-//							colls.add(f);
-//						}
-//					}
-//				}
-//			}
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
-//		// TODO sort the returned list!
-//		return colls;
-//	}
 }

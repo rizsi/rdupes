@@ -117,7 +117,7 @@ abstract public class RDupesObject {
 		}
 	}
 	public String getStringInfo() {
-		return "Size: "+RDupesStage.formatMemory(size)+" in "+nFile+" files. Duplicate size: "+RDupesStage.formatMemory(childDupesSize)+" in "+childDupes+" files. "+getFullName()+
+		return "Size: "+RDupes.formatMemory(size)+" in "+nFile+" files. Duplicate size: "+RDupes.formatMemory(childDupesSize)+" in "+childDupes+" files. "+getFullName()+
 				(allCopy?" Copy is within: "+getParentOnLevel(deepestLevel).getFullName():"");
 	}
 	public RDupesObject getParentOnLevel(int l)

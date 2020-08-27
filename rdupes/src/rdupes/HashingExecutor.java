@@ -10,6 +10,9 @@ import java.util.concurrent.TimeUnit;
 
 import hu.qgears.commons.UtilFile;
 
+/**
+ * Execute crypt hashing (md5 or similar) of files in parallel manner.
+ */
 public class HashingExecutor {
 	private LinkedBlockingQueue<LazyFileHash> tasks=new LinkedBlockingQueue<>();
 	class HT extends Thread

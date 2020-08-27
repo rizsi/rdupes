@@ -1,7 +1,6 @@
 package rdupes;
 
 import java.io.File;
-import java.text.DecimalFormat;
 import java.util.List;
 
 import javafx.animation.KeyFrame;
@@ -80,7 +79,7 @@ public class RDupesStage {
 				long max = Runtime.getRuntime().maxMemory();
 				long alloc = total - free;
 				int divisor = Math.max(rd.foldersProcessed.get()+rd.filesProcessed.get(), 1);
-				heap.setText("Program Memory usage: " + formatMemory(alloc) + " bytes of max: " + formatMemory(max)
+				heap.setText("Program Memory usage: " + RDupes.formatMemory(alloc) + " bytes of max: " + RDupes.formatMemory(max)
 						+ " bytes/file: " + (alloc / divisor));
 				updateSelected(tree.getSelectionModel().getSelectedItem());
 			}
@@ -119,7 +118,7 @@ public class RDupesStage {
 					for (File f : fs) {
 						if(validateSelectedFile(f))
 						{
-							rd.addFolder(f);
+							rd.addFolder(rd.nextFolderName(), f);
 						}else
 						{
 							success=false;
@@ -156,7 +155,7 @@ public class RDupesStage {
 				File selected = addDirChooser.showDialog(primaryStage);
 				if (selected != null) {
 					if (validateSelectedFile(selected)) {
-						rd.addFolder(selected);
+						rd.addFolder(rd.nextFolderName(), selected);
 					}
 				}
 			}
@@ -226,26 +225,4 @@ public class RDupesStage {
 		}
 		return true;
 	}
-
-	private static DecimalFormat df = new DecimalFormat("##.###");
-
-	public static String formatMemory(long m) {
-		long gig = 1024l * 1024l * 1024l;
-		long meg = 1024l * 1024l;
-		long kilo = 1024l;
-		if (m >= gig) {
-			double v = ((double) m) / gig;
-			return df.format(v) + "Gib";
-		}
-		if (m >= meg) {
-			double v = ((double) m) / meg;
-			return df.format(v) + "Mib";
-		}
-		if (m >= kilo) {
-			double v = ((double) m) / kilo;
-			return df.format(v) + "Kib";
-		}
-		return "" + m + " bytes";
-	}
-
 }

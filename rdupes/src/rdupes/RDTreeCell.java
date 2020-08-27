@@ -119,13 +119,13 @@ public class RDTreeCell extends TreeCell<RDupesObject>{
 			targets.append(" ");
 			targets.append(Integer.toString(item.nFile));
 			targets.append(", ");
-			targets.append(RDupesStage.formatMemory(item.getChildSize()));
+			targets.append(RDupes.formatMemory(item.getChildSize()));
 			if(childDupes>0)
 			{
 				targets.append(" [");
 				targets.append(Integer.toString(childDupes));
 				targets.append(", ");
-				targets.append(RDupesStage.formatMemory(childDupesSize));
+				targets.append(RDupes.formatMemory(childDupesSize));
 				targets.append("] ");
 			}
 			if(item.hasCollision())

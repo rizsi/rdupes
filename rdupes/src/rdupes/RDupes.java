@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -16,6 +17,7 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,15 +30,20 @@ import org.eclipse.jgit.ignore.IgnoreNode;
 
 public class RDupes extends RDupesObject {
 	public static final String IGNORE_FILE_NAME = ".rdupesignore";
+	private static DecimalFormat df = new DecimalFormat("##.###");
+	private RDupesClient client=new RDupesClient() {};
 
 	public static void main(String[] args) throws Exception {
-		List<Path> l=new ArrayList<>();
+		RDupes rd=new RDupes();
+		Map<String,Path> l=new TreeMap<>();
+		int n=0;
 		for(String s: args)
 		{
 			Path p=Paths.get(s);
-			l.add(p);
+			l.put(rd.nextFolderName(), p);
+			n++;
 		}
-		new RDupes().run(true, l, 1);
+		rd.run(true, l, 1);
 	}
 	
 	public final AtomicInteger foldersProcessed=new AtomicInteger(0);
@@ -58,23 +65,24 @@ public class RDupes extends RDupesObject {
 	 * Maps the size of the file to a container where all same sized files are.
 	 */
 	private Map<Long, SizeCluster> sizeMap=new TreeMap<>();
-	/**
-	 * Maps the path to the file.
-	 * TODO remove!
-	 */
-	protected Map<Path, RDupesPath> pathMap=new HashMap<>();
 
 	private WatchService ws;
+	/**
+	 * Root folder name auto index - should be used when folder name is not interesting.
+	 */
+	private int folderNameIndex;
 	
 	private class FVisitor extends SimpleFileVisitor<Path>
 	{
 		private RDupesFolder currentFolder;
+		private String folderName;
 		private boolean skipCreateRootFolder;
 
-		public FVisitor(RDupesFolder currentFolder, boolean skipCreateRootFolder) {
+		public FVisitor(RDupesFolder currentFolder, String folderName) {
 			super();
 			this.currentFolder = currentFolder;
-			this.skipCreateRootFolder=skipCreateRootFolder;
+			this.folderName=folderName;
+			skipCreateRootFolder=(folderName==null);
 		}
 		@Override
 		public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
@@ -92,6 +100,11 @@ public class RDupes extends RDupesObject {
 				return FileVisitResult.SKIP_SUBTREE;
 			}
 			RDupesFolder newFolder=new RDupesFolder(RDupes.this, currentFolder, dir);
+			if(folderName!=null)
+			{
+				newFolder.setSimpleName(folderName);
+				folderName=null;
+			}
 			if(currentFolder==null)
 			{
 				synchronized (roots) {
@@ -146,7 +159,8 @@ public class RDupes extends RDupesObject {
 				{
 					if(!isIgnored(file, false))
 					{
-						new RDupesFile(RDupes.this, currentFolder, file, attrs);
+						RDupesFile f=new RDupesFile(RDupes.this, currentFolder, file, attrs);
+						client.fileVisited(f);
 					}
 				}
 			}
@@ -160,6 +174,16 @@ public class RDupes extends RDupesObject {
 			}
 			return FileVisitResult.CONTINUE;
 		}
+	}
+	synchronized public String nextFolderName() {
+		return ""+(folderNameIndex++);
+	}
+	public RDupes setClient(RDupesClient client) {
+		this.client = client;
+		return this;
+	}
+	public RDupesClient getClient() {
+		return client;
 	}
 	/**
 	 * 
@@ -199,9 +223,9 @@ public class RDupes extends RDupesObject {
 	private void reloadFolder(RDupesFolder folder) throws IOException {
 		// Delete all children and then re-visit the folder!
 		folder.deleteChildren();
-		Files.walkFileTree(folder.file, new FVisitor(folder, true));
+		Files.walkFileTree(folder.file, new FVisitor(folder, null));
 	}
-	private void registerRecursive(RDupesFolder root, Path file) {
+	private void registerRecursive(RDupesFolder root, String folderName, Path file) {
 		File f=file.toFile();
 		if (!f.exists()) {
 			return;
@@ -211,7 +235,7 @@ public class RDupes extends RDupesObject {
 			return;
 		}
 		try {
-			Files.walkFileTree(file, new FVisitor(root, false));
+			Files.walkFileTree(file, new FVisitor(root, folderName));
 		} catch (IOException e) {
 			throw new RuntimeException("Error registering path " + file, e);
 		}
@@ -221,14 +245,14 @@ public class RDupes extends RDupesObject {
 		paths.put(watchKey, dir);
 	}
 
-	public void run(boolean listen, List<Path> initialPaths, int nHashThread) throws Exception {
+	public void run(boolean listen, Map<String, Path> initialPaths, int nHashThread) throws Exception {
 		FileSystem fs = FileSystems.getDefault();
 		ws = fs.newWatchService();
-		for(Path p:initialPaths)
+		for(Map.Entry<String, Path> p:initialPaths.entrySet())
 		{
 			synchronized(globalLock)
 			{
-				registerRecursive(null, p);
+				registerRecursive(null, p.getKey(), p.getValue());
 			}
 		}
 		hashing.setNThread(nHashThread);
@@ -244,7 +268,8 @@ public class RDupes extends RDupesObject {
 			// wait for a key to be available
 			key = ws.take();
 			tasks.incrementAndGet();
-		} catch (InterruptedException ex) {
+		} catch (ClosedWatchServiceException|InterruptedException ex) {
+			// If this happens then this thread was stopped - no need to log the exception.
 			return;
 		}
 		processUpdates(key);
@@ -282,7 +307,7 @@ public class RDupes extends RDupesObject {
 							updateIgnoreFile(folder, fullp, true);
 						}else
 						{
-							registerRecursive(folder, fullp);
+							registerRecursive(folder, null, fullp);
 						}
 						// process create event
 					} else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
@@ -359,6 +384,14 @@ public class RDupes extends RDupesObject {
 	}
 
 	public void start(int nHashThread, List<Path> l) {
+		Map<String, Path> m=new TreeMap<>();
+		for(Path p: l)
+		{
+			m.put(nextFolderName(), p);
+		}
+		start(nHashThread, m);
+	}
+	public void start(int nHashThread, Map<String, Path> l) {
 		Thread t=new Thread(RDupes.class.getSimpleName()){
 			@Override
 			public void run() {
@@ -387,13 +420,13 @@ public class RDupes extends RDupesObject {
 		sizeMap.remove(size, sizeCluster);
 	}
 
-	public void addFolder(File selected) {
+	public void addFolder(String folderName, File selected) {
 		new Thread("RDupes add folder")
 		{
 			public void run() {
 				tasks.incrementAndGet();
 				synchronized (globalLock) {
-					registerRecursive(null, Paths.get(selected.getAbsolutePath()));
+					registerRecursive(null, folderName, Paths.get(selected.getAbsolutePath()));
 				}
 				tasks.decrementAndGet();
 			};
@@ -442,5 +475,32 @@ public class RDupes extends RDupesObject {
 	{
 		roots.remove(rDupesPath);
 		fireChange();
+	}
+	public static String formatMemory(long m) {
+		long gig = 1024l * 1024l * 1024l;
+		long meg = 1024l * 1024l;
+		long kilo = 1024l;
+		if (m >= gig) {
+			double v = ((double) m) / gig;
+			synchronized (df) {
+				return df.format(v) + "Gib";
+			}
+		}
+		if (m >= meg) {
+			double v = ((double) m) / meg;
+			synchronized (df) {
+				return df.format(v) + "Mib";
+			}
+		}
+		if (m >= kilo) {
+			double v = ((double) m) / kilo;
+			synchronized (df) {
+				return df.format(v) + "Kib";
+			}
+		}
+		return "" + m + " bytes";
+	}
+	public IHashProvider startHash(RDupesFile rDupesFile, long fileSize, long lastModified) {
+		return client.startHash(rDupesFile, fileSize, lastModified);
 	}
 }
