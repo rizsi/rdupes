@@ -17,4 +17,6 @@ public interface RDupesClient {
 		return ret;
 	}
 
+	default void fileModified(RDupesPath p) {}
+
 }

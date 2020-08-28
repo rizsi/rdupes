@@ -36,12 +36,10 @@ public class RDupes extends RDupesObject {
 	public static void main(String[] args) throws Exception {
 		RDupes rd=new RDupes();
 		Map<String,Path> l=new TreeMap<>();
-		int n=0;
 		for(String s: args)
 		{
 			Path p=Paths.get(s);
 			l.put(rd.nextFolderName(), p);
-			n++;
 		}
 		rd.run(true, l, 1);
 	}
@@ -324,6 +322,7 @@ public class RDupes extends RDupesObject {
 						if(p!=null)
 						{
 							p.modified();
+							client.fileModified(p);
 						}else
 						{
 							if(fileName.getFileName().toString().equals(IGNORE_FILE_NAME))
