@@ -305,7 +305,7 @@ public class RDupes extends RDupesObject {
 							updateIgnoreFile(folder, fullp, true);
 						}else
 						{
-							registerRecursive(folder, null, fullp);
+							registerRecursive(folder, fileName.toString(), fullp);
 						}
 						// process create event
 					} else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {

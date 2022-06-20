@@ -9,6 +9,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import hu.qgears.commons.UtilFile;
+import hu.qgears.commons.mem.DefaultJavaNativeMemoryAllocator;
+import hu.qgears.commons.mem.INativeMemory;
 
 /**
  * Execute crypt hashing (md5 or similar) of files in parallel manner.
@@ -25,23 +27,26 @@ public class HashingExecutor {
 		public void run() {
 			try {
 				MessageDigest m = MessageDigest.getInstance("MD5");
-				ByteBuffer bb=ByteBuffer.allocateDirect(UtilFile.defaultBufferSize.get()*8);
-				while(!exit)
+				try(INativeMemory mem=DefaultJavaNativeMemoryAllocator.getInstance().allocateNativeMemory(UtilFile.defaultBufferSize.get()*8))
 				{
-					LazyFileHash t;
-					try {
-						t = tasks.poll(10000, TimeUnit.MILLISECONDS);
-						if(t!=null)
-						{
-							try {
-								m.reset();
-								t.call(bb, m);
-							} catch (Exception e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
+					ByteBuffer bb=mem.getJavaAccessor();
+					while(!exit)
+					{
+						LazyFileHash t;
+						try {
+							t = tasks.poll(10000, TimeUnit.MILLISECONDS);
+							if(t!=null)
+							{
+								try {
+									m.reset();
+									t.call(bb, m);
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
 							}
+						} catch (InterruptedException e) {
 						}
-					} catch (InterruptedException e) {
 					}
 				}
 			} catch (NoSuchAlgorithmException e) {
